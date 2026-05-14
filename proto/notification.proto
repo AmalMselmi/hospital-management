@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package notification;
+
+service NotificationService {
+  rpc ListNotifications (ListNotificationsRequest) returns (ListNotificationsResponse);
+}
+
+message ListNotificationsRequest {
+  string patient_id = 1;
+}
+
+message NotificationResponse {
+  string id         = 1;
+  string patient_id = 2;
+  string message    = 3;
+  string type       = 4;
+  string created_at = 5;
+}
+
+message ListNotificationsResponse {
+  repeated NotificationResponse notifications = 1;
+}

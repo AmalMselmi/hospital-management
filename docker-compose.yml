@@ -1,0 +1,115 @@
+version: "3.9"
+
+networks:
+  hospital-net:
+    driver: bridge
+
+volumes:
+  kafka-data:
+
+services:
+
+  # ─── Kafka (Bitnami, KRaft mode — no ZooKeeper, Kafka 4.x) ──────────────────
+  kafka:
+    image: bitnami/kafka:4.0.0
+    container_name: hospital-kafka
+    restart: unless-stopped
+    environment:
+      # KRaft (no ZooKeeper) — Kafka 4 native mode
+      KAFKA_CFG_NODE_ID: 1
+      KAFKA_CFG_PROCESS_ROLES: controller,broker
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
+      ALLOW_PLAINTEXT_LISTENER: "yes"
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka-data:/bitnami/kafka
+    networks:
+      - hospital-net
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # ─── Patient Service ─────────────────────────────────────────────────────────
+  patient-service:
+    build:
+      context: ./patient-service
+      dockerfile: Dockerfile
+    container_name: hospital-patient-service
+    restart: unless-stopped
+    environment:
+      GRPC_PORT: 50051
+      KAFKA_BROKER: kafka:9092
+      DB_PATH: /app/data/patients.db
+    volumes:
+      - ./patient-service/data:/app/data
+    networks:
+      - hospital-net
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  # ─── Appointment Service ──────────────────────────────────────────────────────
+  appointment-service:
+    build:
+      context: ./appointment-service
+      dockerfile: Dockerfile
+    container_name: hospital-appointment-service
+    restart: unless-stopped
+    environment:
+      GRPC_PORT: 50052
+      KAFKA_BROKER: kafka:9092
+      DB_PATH: /app/data/appointments.db
+    volumes:
+      - ./appointment-service/data:/app/data
+    networks:
+      - hospital-net
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  # ─── Notification Service ─────────────────────────────────────────────────────
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    container_name: hospital-notification-service
+    restart: unless-stopped
+    environment:
+      GRPC_PORT: 50053
+      KAFKA_BROKER: kafka:9092
+    networks:
+      - hospital-net
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  # ─── API Gateway ─────────────────────────────────────────────────────────────
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: hospital-api-gateway
+    restart: unless-stopped
+    environment:
+      PORT: 4000
+      PATIENT_SERVICE_URL: patient-service:50051
+      APPOINTMENT_SERVICE_URL: appointment-service:50052
+      NOTIFICATION_SERVICE_URL: notification-service:50053
+    ports:
+      - "4000:4000"
+    networks:
+      - hospital-net
+    depends_on:
+      - patient-service
+      - appointment-service
+      - notification-service

@@ -1,0 +1,20 @@
+{
+  "name": "appointment-service",
+  "version": "1.0.0",
+  "description": "Appointment booking gRPC microservice",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "dependencies": {
+    "@grpc/grpc-js": "^1.10.0",
+    "@grpc/proto-loader": "^0.7.10",
+    "better-sqlite3": "^9.4.3",
+    "kafkajs": "^2.2.4",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.3"
+  }
+}
