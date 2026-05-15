@@ -14,7 +14,6 @@ async function startConsumer() {
   await consumer.connect();
   console.log('[Kafka] Notification consumer connected');
 
-  // Consuming from ALL THREE topics now
   await consumer.subscribe({
     topics: ['patient.created', 'appointment.created', 'appointment.cancelled'],
     fromBeginning: false,
@@ -32,20 +31,16 @@ async function startConsumer() {
         let notifType = '';
         let patient_id = '';
 
-        // From Patient Service
         if (event === 'PATIENT_CREATED') {
           notifMessage = `Welcome ${data.name}! Your patient record has been successfully created.`;
           notifType = 'patient_welcome';
-          patient_id = data.id; // patient.created payload uses data.id
+          patient_id = data.id;
         }
-
-        // From Appointment Service
         else if (event === 'APPOINTMENT_CREATED') {
           notifMessage = `Your appointment with Dr. ${data.doctor_name} on ${data.date} at ${data.time} is confirmed.`;
           notifType = 'appointment_created';
           patient_id = data.patient_id;
         }
-
         else if (event === 'APPOINTMENT_CANCELLED') {
           notifMessage = `Your appointment with Dr. ${data.doctor_name} on ${data.date} has been cancelled.`;
           notifType = 'appointment_cancelled';
