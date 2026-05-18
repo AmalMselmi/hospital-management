@@ -50,6 +50,8 @@ services:
     volumes:
       - ./patient-service/data:/app/data
       - ./proto:/proto
+    ports:
+      - "50051:50051"
     networks:
       - hospital-net
     depends_on:
@@ -69,6 +71,8 @@ services:
     volumes:
       - ./appointment-service/data:/app/data
       - ./proto:/proto
+    ports:
+      - "50052:50052"
     networks:
       - hospital-net
     depends_on:
@@ -86,6 +90,8 @@ services:
       KAFKA_BROKER: kafka:9092
     volumes:
       - ./proto:/proto
+    ports:
+      - "50053:50053"
     networks:
       - hospital-net
     depends_on:
