@@ -46,6 +46,9 @@ const resolvers = {
     cancelAppointment: async (_, { id }) => {
       return await grpcCall(appointmentClient, 'cancelAppointment', { id });
     },
+    updateAppointment: async (_, args) => {
+  return await grpcCall(appointmentClient, 'updateAppointment', args);
+},
   },
 };
 

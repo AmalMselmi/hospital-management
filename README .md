@@ -271,6 +271,19 @@ GET /api/appointments?patient_id=<patient-id>
 GET /api/appointments/:id
 ```
 
+#### Update an Appointment
+```
+PUT /api/appointments/:id
+Content-Type: application/json
+
+{
+  "doctor_name": "Dr. Ben Salem",
+  "date": "2026-07-15",
+  "time": "14:00",
+  "reason": "Follow-up consultation"
+}
+```
+
 #### Cancel an Appointment
 ```
 DELETE /api/appointments/:id
@@ -314,6 +327,11 @@ curl -X POST http://localhost:4000/api/appointments \
 
 # Get notifications for a patient
 curl "http://localhost:4000/api/notifications?patient_id=<id>"
+
+# Update an appointment
+curl -X PUT http://localhost:4000/api/appointments/<id> \
+  -H "Content-Type: application/json" \
+  -d '{"doctor_name":"Dr. Ben Salem","date":"2026-07-15","time":"14:00","reason":"Follow-up consultation"}'
 
 # Cancel an appointment
 curl -X DELETE http://localhost:4000/api/appointments/<id>
@@ -379,6 +397,7 @@ type Mutation {
   updatePatient(id: String!, name: String!, email: String!, phone: String!, age: Int!): Patient!
   deletePatient(id: String!): DeleteResult!
   createAppointment(patient_id: String!, doctor_name: String!, date: String!, time: String!, reason: String!): Appointment!
+  updateAppointment(id: String!, doctor_name: String!, date: String!, time: String!, reason: String!): Appointment!
   cancelAppointment(id: String!): DeleteResult!
 }
 ```
@@ -493,6 +512,26 @@ mutation {
 }
 ```
 
+**Update an appointment:**
+```graphql
+mutation {
+  updateAppointment(
+    id: "APPOINTMENT_ID"
+    doctor_name: "Dr. Ben Salem"
+    date: "2026-07-15"
+    time: "14:00"
+    reason: "Follow-up consultation"
+  ) {
+    id
+    doctor_name
+    date
+    time
+    reason
+    status
+  }
+}
+```
+
 **Cancel an appointment:**
 ```graphql
 mutation {
@@ -536,6 +575,7 @@ The `proto/` folder contains the gRPC interface contracts shared between the API
 | `CreateAppointment` | patient_id, doctor_name, date, time, reason | AppointmentResponse |
 | `GetAppointment` | id | AppointmentResponse |
 | `ListAppointments` | patient_id (optional) | ListAppointmentsResponse |
+| `UpdateAppointment` | id, doctor_name, date, time, reason | AppointmentResponse |
 | `CancelAppointment` | id | DeleteResponse |
 
 ### notification.proto

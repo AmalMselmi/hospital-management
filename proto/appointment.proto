@@ -7,6 +7,7 @@ service AppointmentService {
   rpc GetAppointment    (GetAppointmentRequest)    returns (AppointmentResponse);
   rpc ListAppointments  (ListAppointmentsRequest)  returns (ListAppointmentsResponse);
   rpc CancelAppointment (CancelAppointmentRequest) returns (DeleteResponse);
+  rpc UpdateAppointment (UpdateAppointmentRequest) returns (AppointmentResponse);
 }
 
 message CreateAppointmentRequest {
@@ -46,4 +47,12 @@ message ListAppointmentsResponse {
 message DeleteResponse {
   bool   success = 1;
   string message = 2;
+}
+
+message UpdateAppointmentRequest {
+  string id          = 1;
+  string doctor_name = 2;
+  string date        = 3;
+  string time        = 4;
+  string reason      = 5;
 }

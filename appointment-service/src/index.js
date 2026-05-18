@@ -81,12 +81,29 @@ function cancelAppointment(call, callback) {
   }
 }
 
+function updateAppointment(call, callback) {
+  try {
+    const { id, doctor_name, date, time, reason } = call.request;
+    const existing = db.prepare('SELECT * FROM appointments WHERE id = ?').get(id);
+    if (!existing) {
+      return callback({ code: grpc.status.NOT_FOUND, message: 'Appointment not found' });
+    }
+    db.prepare(
+      'UPDATE appointments SET doctor_name = ?, date = ?, time = ?, reason = ? WHERE id = ?'
+    ).run(doctor_name, date, time, reason, id);
+    callback(null, { ...existing, doctor_name, date, time, reason });
+  } catch (err) {
+    callback({ code: grpc.status.INTERNAL, message: err.message });
+  }
+}
+
 const server = new grpc.Server();
 server.addService(proto.AppointmentService.service, {
   createAppointment,
   getAppointment,
   listAppointments,
   cancelAppointment,
+  updateAppointment,
 });
 
 const PORT = process.env.GRPC_PORT || 50052;

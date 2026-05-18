@@ -101,6 +101,15 @@ app.delete('/api/appointments/:id', async (req, res) => {
   }
 });
 
+app.put('/api/appointments/:id', async (req, res) => {
+  try {
+    const appt = await grpcCall(appointmentClient, 'updateAppointment', { id: req.params.id, ...req.body });
+    res.json(appt);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── REST Endpoint (Notification Service) ─────────────────────────────────────
 
 app.get('/api/notifications', async (req, res) => {

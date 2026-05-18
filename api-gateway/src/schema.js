@@ -54,6 +54,7 @@ const typeDefs = gql`
     # Appointment mutations
     createAppointment(patient_id: String!, doctor_name: String!, date: String!, time: String!, reason: String!): Appointment!
     cancelAppointment(id: String!): DeleteResult!
+    updateAppointment(id: String!, doctor_name: String!, date: String!, time: String!, reason: String!): Appointment!
   }
 `;
 
