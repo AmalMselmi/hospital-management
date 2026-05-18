@@ -7,13 +7,13 @@ volumes:
 
 services:
 
-  # ─── Kafka (Bitnami, KRaft mode — no ZooKeeper, Kafka 4.x) ──────────────────
+  # ─── Kafka (Bitnami, KRaft mode, Kafka 4.x) ──────────────────
   kafka:
     image: bitnamilegacy/kafka:4.0.0-debian-12-r10
     container_name: hospital-kafka
     restart: unless-stopped
     environment:
-      # KRaft (no ZooKeeper) — Kafka 4 native mode
+      # KRaft (Kafka 4)
       KAFKA_CFG_NODE_ID: 1
       KAFKA_CFG_PROCESS_ROLES: controller,broker
       KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
