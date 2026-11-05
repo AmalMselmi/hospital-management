@@ -1,18 +1,17 @@
-# 🏥 Smart Hospital Management System
+# Smart Hospital Management System
 
-> **Microservices Architecture** — Node.js · gRPC · Apache Kafka 4.0 · REST · GraphQL · SQLite3 · RxDB · Docker  
-> Academic Project — SoA et Microservices — Dr. Salah Gontara — A.U. 2025-26
-
----
-
-## 📌 Table of Contents
+## Table of Contents
 
 - [Project Description](#-project-description)
 - [Architecture](#-architecture)
 - [Services Overview](#-services-overview)
 - [Kafka Topics](#-kafka-topics)
 - [Project Structure](#-project-structure)
+- [Containerization](#-containerization)
 - [Installation & Setup](#-installation--setup)
+- [Docker Commands: Build, Start, Diagnose, Stop](#-docker-commands-build-start-diagnose-stop)
+- [Tests Performed](#-tests-performed)
+- [Difficulties and Solutions](#-difficulties-and-solutions)
 - [REST API Reference](#-rest-api-reference)
 - [GraphQL API Reference](#-graphql-api-reference)
 - [Proto Files](#-proto-files)
@@ -22,7 +21,7 @@
 
 ---
 
-## 📋 Project Description
+## Project Description
 
 The **Smart Hospital Management System** is a distributed application built with a microservices architecture using **Node.js exclusively**. The system handles patient registration, appointment booking and cancellation, and automated notifications through three independent microservices.
 
@@ -36,7 +35,7 @@ The project demonstrates:
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ![Architecture Diagram](./archi_drawio.png)
 
@@ -50,7 +49,7 @@ The application follows this architecture:
 
 ---
 
-## 🧩 Services Overview
+## Services Overview
 
 | Service | Responsibility | Interface | Port | Database |
 |---|---|---|---|---|
@@ -62,7 +61,7 @@ The application follows this architecture:
 
 ---
 
-## 📨 Kafka Topics
+## Kafka Topics
 
 | Topic | Producer | Consumer | Triggered When |
 |---|---|---|---|
@@ -77,7 +76,7 @@ The application follows this architecture:
 2. The service saves the data to its own database (SQLite3)
 3. The service publishes a JSON event to the corresponding Kafka topic
 4. The service immediately responds to the API Gateway (non-blocking)
-5. Meanwhile — Notification Service receives the event from Kafka
+5. Meanwhile, Notification Service receives the event from Kafka
 6. Notification Service saves the notification to RxDB
 ```
 
@@ -85,63 +84,104 @@ The application follows this architecture:
 
 ---
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 hospital-management/
 │
 ├── proto/
-│   ├── patient.proto            # gRPC contract — Patient Service
-│   ├── appointment.proto        # gRPC contract — Appointment Service
-│   └── notification.proto       # gRPC contract — Notification Service
+│   ├── patient.proto            # gRPC contract: Patient Service
+│   ├── appointment.proto        # gRPC contract: Appointment Service
+│   └── notification.proto       # gRPC contract: Notification Service
 │
 ├── api-gateway/
 │   ├── src/
-│   │   ├── index.js             # Express server — REST routes + Apollo GraphQL
+│   │   ├── index.js             # Express server: REST routes + Apollo GraphQL
 │   │   ├── grpcClients.js       # gRPC client stubs for all 3 microservices
 │   │   ├── schema.js            # GraphQL type definitions
-│   │   └── resolvers.js         # GraphQL resolvers — call gRPC clients
+│   │   └── resolvers.js         # GraphQL resolvers: call gRPC clients
 │   ├── Dockerfile
+│   ├── .dockerignore
 │   └── package.json
 │
 ├── patient-service/
 │   ├── src/
-│   │   ├── index.js             # gRPC server — patient CRUD logic
+│   │   ├── index.js             # gRPC server: patient CRUD logic
 │   │   ├── db.js                # SQLite3 database initialization
-│   │   └── kafkaProducer.js     # Publishes patient.created to Kafka
-│   ├── data/                    # SQLite3 database file (persisted via volume)
+│   │   └── KafkaProducer.js     # Publishes patient.created to Kafka
+│   ├── data/                    # SQLite3 database file (persisted via bind mount)
 │   ├── Dockerfile
+│   ├── .dockerignore
 │   └── package.json
 │
 ├── appointment-service/
 │   ├── src/
-│   │   ├── index.js             # gRPC server — appointment logic
+│   │   ├── index.js             # gRPC server: appointment logic
 │   │   ├── db.js                # SQLite3 database initialization
-│   │   └── kafkaProducer.js     # Publishes appointment.created / cancelled
-│   ├── data/                    # SQLite3 database file (persisted via volume)
+│   │   └── KafkaProducer.js     # Publishes appointment.created / cancelled
+│   ├── data/                    # SQLite3 database file (persisted via bind mount)
 │   ├── Dockerfile
+│   ├── .dockerignore
 │   └── package.json
 │
 ├── notification-service/
 │   ├── src/
-│   │   ├── index.js             # gRPC server — list notifications
+│   │   ├── index.js             # gRPC server: list notifications
 │   │   ├── db.js                # RxDB in-memory database initialization
-│   │   └── kafkaConsumer.js     # Consumes patient.created, appointment.*
+│   │   └── KafkaConsumer.js     # Consumes patient.created, appointment.*
 │   ├── Dockerfile
+│   ├── .dockerignore
 │   └── package.json
 │
+├── screenshots/                 # Screenshots of the build, tests and results
 ├── docker-compose.yml           # Orchestrates all 5 containers
-├── .gitignore                   # Excludes node_modules, .db files
+├── .gitignore                   # Excludes node_modules, .db files, .env
 └── README.md
 ```
 
+> File names are case-sensitive inside the Linux containers: `KafkaProducer.js` and `KafkaConsumer.js` must be required with exactly that spelling (see [Difficulties and Solutions](#-difficulties-and-solutions)).
+
 ---
 
-## 🚀 Installation & Setup
+## Containerization
+
+### Dockerfiles
+
+Each of the four Node.js services has its own `Dockerfile` and `.dockerignore`.
+
+```dockerfile
+FROM node:20-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm install --omit=dev      # dependencies first, for layer caching
+COPY src/ ./src/
+EXPOSE <service port>
+CMD ["node", "src/index.js"]
+```
+
+- The patient and appointment services also run `mkdir -p /app/data` for their SQLite file.
+- `.dockerignore` excludes `node_modules`, `npm-debug.log`, `.env`, `.git` and `data`, so the images stay small and local files never leak into them.
+
+### docker-compose.yml
+
+| Element | Configuration |
+|---|---|
+| **Network** | One bridge network, `hospital-net`. Containers reach each other by **service name** (`kafka`, `patient-service`, ...). |
+| **Ports published to the host** | `4000` (API gateway), `50051-50053` (gRPC, for debugging), `9092` (Kafka) |
+| **Environment variables** | `GRPC_PORT`, `KAFKA_BROKER=kafka:9092`, `DB_PATH`; gateway: `PORT`, `PATIENT_SERVICE_URL=patient-service:50051`, `APPOINTMENT_SERVICE_URL=appointment-service:50052`, `NOTIFICATION_SERVICE_URL=notification-service:50053` |
+| **Dependencies** | The three microservices wait for Kafka to be `healthy` (`depends_on: condition: service_healthy`); the gateway waits for the three services to start |
+| **Healthcheck** | Kafka: `kafka-topics.sh --bootstrap-server localhost:9092 --list` (every 15 s, 30 s start period, 10 retries) |
+| **Persistent storage** | Named volume `kafka-data` (Kafka logs); bind mounts `./patient-service/data` and `./appointment-service/data` (SQLite files) |
+| **Shared contracts** | `./proto` is mounted read-write at `/proto` in the gateway and in each microservice |
+| **Restart policy** | `unless-stopped` |
+
+---
+
+## Installation & Setup
 
 ### Prerequisites
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and **running** (wait for "Engine running")
 - [Git](https://git-scm.com/)
 
 ### Clone and Run
@@ -151,23 +191,27 @@ hospital-management/
 git clone https://github.com/AmalMselmi/hospital-management.git
 cd hospital-management
 
-# 2 — Create required data directories for SQLite3 persistence
-mkdir -p patient-service/data appointment-service/data
+# 2 — Build and start all containers in the background
+docker compose up -d --build
 
-# 3 — Build and start all containers
-docker-compose up --build
+# 3 — Check the status (Kafka takes 30-60 s to become healthy)
+docker compose ps
 ```
 
-Wait approximately **30–40 seconds** for Kafka to fully initialize. You will see these messages:
+The `data/` folders for SQLite are created automatically on first start.
+
+Once everything is up, the logs show:
 
 ```
-hospital-kafka                 | Kafka version: 4.0.0
 hospital-patient-service       | [Patient Service] gRPC server running on port 50051
 hospital-appointment-service   | [Appointment Service] gRPC server running on port 50052
 hospital-notification-service  | [Kafka] Notification consumer connected
 hospital-notification-service  | [Notification Service] gRPC server running on port 50053
 hospital-api-gateway           | [API Gateway] HTTP server running on port 4000
 ```
+
+![docker compose up](./screenshots/01-compose-up.png)
+![docker compose ps](./screenshots/02-compose-ps.png)
 
 ### Access Points
 
@@ -177,25 +221,151 @@ hospital-api-gateway           | [API Gateway] HTTP server running on port 4000
 | GraphQL Sandbox | http://localhost:4000/graphql |
 | Health Check | http://localhost:4000/health |
 
-### Stop the Project
+---
+
+## Docker Commands: Build, Start, Diagnose, Stop
+
+### Build
 
 ```bash
-# Stop all containers
-docker-compose down
-
-# Stop and remove all data (volumes)
-docker-compose down -v
+docker compose config                        # validate docker-compose.yml
+docker compose build                         # build all images
+docker compose build notification-service    # build a single service
 ```
+
+### Start
+
+```bash
+docker compose up -d --build                 # build and start everything in the background
+docker compose up -d --build <service>       # rebuild and restart one service after a code change
+docker compose start | stop | restart <service>
+```
+
+### Diagnose
+
+```bash
+docker compose ps                            # status of all services (Up / healthy / Restarting)
+docker compose logs -f                       # follow all logs (Ctrl+C to exit)
+docker compose logs -f notification-service  # follow one service
+docker compose logs --tail 50 patient-service
+
+docker compose exec api-gateway sh           # open a shell in a container
+docker compose exec api-gateway nslookup patient-service            # check DNS between services
+docker compose exec kafka kafka-topics.sh --bootstrap-server localhost:9092 --list
+docker compose exec kafka kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic patient.created --from-beginning --timeout-ms 5000
+
+docker network ls
+docker network inspect hospital-management_hospital-net
+docker volume ls
+```
+
+### Stop
+
+```bash
+docker compose stop        # stop the containers, keep them
+docker compose down        # stop and remove the containers and the network (data is kept)
+docker compose down -v     # also removes the named volume kafka-data
+```
+
+> `down -v` removes only the Kafka volume. The SQLite files live in `./patient-service/data` and `./appointment-service/data` on the host and are **not** deleted. The notification database (RxDB) is in memory and is emptied whenever the notification container restarts.
 
 ---
 
-## 🔗 REST API Reference
+## Tests Performed
+
+### Prerequisites
+
+```bash
+docker compose up -d --build
+docker compose ps                                    # wait until kafka is healthy
+```
+
+The tests are run manually, with `curl` or the GraphQL Apollo Sandbox (http://localhost:4000/graphql).
+
+### Test plan
+
+| # | Test | How | Expected result |
+|---|---|---|---|
+| T1 | All containers start | `docker compose ps` | 5 services `Up`, Kafka `healthy` |
+| T2 | Startup order | `docker compose logs` | Microservices start only after Kafka is healthy; no connection errors |
+| T3 | Service-name resolution | `docker compose exec api-gateway nslookup patient-service` | The service name resolves to a container IP on `hospital-net` |
+| T4 | Gateway health | `GET /health` | `{ "status": "ok", "service": "api-gateway" }` |
+| T5 | Patient CRUD (REST → gRPC → SQLite) | `curl` requests from the [REST API Reference](#-rest-api-reference) | Create, read, list, update and delete succeed |
+| T6 | Appointment lifecycle | `curl` requests from the [REST API Reference](#-rest-api-reference) | Book, read, filter by patient, update and cancel succeed |
+| T7 | **End-to-end scenario**: gateway → gRPC → Kafka → notification | Create a patient, book an appointment, then `GET /api/notifications?patient_id=<id>` | One notification per event (`patient.created`, `appointment.created`), and one more after the cancellation |
+| T8 | GraphQL | Apollo Sandbox (queries and mutations from the [GraphQL API Reference](#-graphql-api-reference)) | Queries and mutations return the same data as REST |
+| T9 | Error handling | `GET /api/patients/does-not-exist` | An error response, no crash |
+| T10 | SQLite persistence | `docker compose down`, then `docker compose up -d` | Patients and appointments are still present |
+| T11 | Kafka decoupling | `docker compose stop notification-service`, create a patient, `docker compose start notification-service` | The notification service processes the event once it is back |
+
+### End-to-end scenario (T7), step by step
+
+```bash
+# 1. Follow the notification logs in a second terminal
+docker compose logs -f notification-service
+
+# 2. Create a patient and note the returned id
+curl -X POST http://localhost:4000/api/patients -H "Content-Type: application/json" -d "{\"name\":\"Alice Ben Ali\",\"email\":\"alice@hospital.com\",\"phone\":\"0612345678\",\"age\":34}"
+
+# 3. Book an appointment for that patient
+curl -X POST http://localhost:4000/api/appointments -H "Content-Type: application/json" -d "{\"patient_id\":\"<id>\",\"doctor_name\":\"Dr. Mansour\",\"date\":\"2026-12-01\",\"time\":\"10:00\",\"reason\":\"General checkup\"}"
+
+# 4. Read the notifications produced through Kafka
+curl "http://localhost:4000/api/notifications?patient_id=<id>"
+```
+
+![end-to-end scenario](./screenshots/03-e2e-scenario.png)
+![notification logs](./screenshots/04-notification-logs.png)
+![GraphQL sandbox](./screenshots/05-graphql.png)
+
+### Persistence test (T10)
+
+```bash
+# 1. Create a patient and note its id (same curl command as in the end-to-end scenario)
+# 2. Remove and recreate the containers
+docker compose down
+docker compose up -d
+# 3. Wait for Kafka to be healthy, then fetch the patient: it is still there
+curl http://localhost:4000/api/patients/<id>
+```
+
+![persistence](./screenshots/06-persistence.png)
+
+### Kafka decoupling test (T11)
+
+```bash
+docker compose stop notification-service
+curl -X POST http://localhost:4000/api/patients -H "Content-Type: application/json" -d "{\"name\":\"Bob\",\"email\":\"bob@hospital.com\",\"phone\":\"0600000000\",\"age\":40}"
+docker compose start notification-service
+docker compose logs -f notification-service
+```
+
+The patient is created even though the notification service is down, and the event is delivered when it comes back.
+
+![kafka decoupling](./screenshots/07-kafka-decoupling.png)
+
+---
+
+## Difficulties and Solutions
+
+| Problem | Cause | Solution |
+|---|---|---|
+| `Error: Cannot find module './kafkaConsumer'` — `notification-service`, `patient-service` and `appointment-service` kept restarting | The files are named `KafkaConsumer.js` / `KafkaProducer.js` but the code required `./kafkaConsumer` / `./kafkaProducer`. Windows ignores letter case in file names, so it worked locally; Linux inside the containers does not. The `restart: unless-stopped` policy then restarted the failing containers in a loop. | Diagnosed with `docker compose ps` and `docker compose logs <service>`. Fixed the `require()` paths to match the exact file names, then `docker compose up -d --build <service>`. |
+| Microservices started before Kafka was ready | Kafka needs 30-60 s to initialize; the services tried to connect immediately | Added a Kafka healthcheck (`kafka-topics.sh --list`) with a `start_period`, and `depends_on` with `condition: service_healthy` |
+| Services could not reach each other | Inside a container, `localhost` is the container itself | Every address uses the **service name** on the `hospital-net` network: `kafka:9092`, `patient-service:50051`, ... Kafka's `ADVERTISED_LISTENERS` is `PLAINTEXT://kafka:9092` |
+| SQLite data lost when containers are removed | Data written inside a container is deleted with it | Bind mounts `./patient-service/data` and `./appointment-service/data`; `*.db` files are listed in `.gitignore` |
+| Notifications disappear after a restart | RxDB runs in memory by design | Documented; the SQLite databases and the Kafka log are the persistent sources of truth |
+| `git clone` over SSH hung at "Compressing objects" | Slow or throttled SSH connection | Cloned over HTTPS instead: `git clone https://github.com/AmalMselmi/hospital-management.git` |
+
+---
+
+## REST API Reference
 
 **Base URL:** `http://localhost:4000`
 
 ---
 
-### 👤 Patient Endpoints
+###  Patient Endpoints
 
 #### Create a Patient
 ```
@@ -240,7 +410,7 @@ DELETE /api/patients/:id
 
 ---
 
-### 📅 Appointment Endpoints
+### Appointment Endpoints
 
 #### Book an Appointment
 ```
@@ -291,7 +461,7 @@ DELETE /api/appointments/:id
 
 ---
 
-### 🔔 Notification Endpoints
+### Notification Endpoints
 
 #### Get Notifications for a Patient
 ```
@@ -300,7 +470,7 @@ GET /api/notifications?patient_id=<patient-id>
 
 ---
 
-### ✅ Health Check
+### Health Check
 ```
 GET /health
 
@@ -310,6 +480,8 @@ Response: { "status": "ok", "service": "api-gateway" }
 ---
 
 ### curl Examples
+
+On Windows `cmd`, use double quotes and escape the inner ones as shown in [Tests Performed](#-tests-performed). On Linux/macOS/Git Bash:
 
 ```bash
 # Create a patient
@@ -342,11 +514,11 @@ curl -X DELETE http://localhost:4000/api/patients/<id>
 
 ---
 
-## 📊 GraphQL API Reference
+## GraphQL API Reference
 
 **Endpoint:** `http://localhost:4000/graphql`
 
-Open in browser to access the **Apollo Sandbox** — an interactive interface to run queries and mutations.
+Open in browser to access the **Apollo Sandbox**, an interactive interface to run queries and mutations.
 
 ---
 
@@ -554,9 +726,9 @@ mutation {
 
 ---
 
-## 📄 Proto Files
+## Proto Files
 
-The `proto/` folder contains the gRPC interface contracts shared between the API Gateway and each microservice. Both sides load the same `.proto` file — the gateway as a client, the service as a server.
+The `proto/` folder contains the gRPC interface contracts shared between the API Gateway and each microservice. Both sides load the same `.proto` file, the gateway as a client, the service as a server. In Docker, the folder is mounted at `/proto` in each container.
 
 ### patient.proto
 
@@ -586,19 +758,19 @@ The `proto/` folder contains the gRPC interface contracts shared between the API
 
 ---
 
-## 🗄️ Databases
+## Databases
 
 | Service | Database | Type | Location |
 |---|---|---|---|
-| Patient Service | SQLite3 | SQL / Relational | `patient-service/data/patients.db` |
-| Appointment Service | SQLite3 | SQL / Relational | `appointment-service/data/appointments.db` |
+| Patient Service | SQLite3 | SQL / Relational | `patient-service/data/patients.db` (bind mount) |
+| Appointment Service | SQLite3 | SQL / Relational | `appointment-service/data/appointments.db` (bind mount) |
 | Notification Service | RxDB | NoSQL / In-memory | Runtime only (in container memory) |
 
-> Each microservice has its own completely independent database. No service can access another service's database directly — all data access goes through gRPC.
+> Each microservice has its own completely independent database. No service can access another service's database directly, all data access goes through gRPC.
 
 ---
 
-## 🛠️ Technologies Used
+## Technologies Used
 
 | Technology | Version | Role |
 |---|---|---|
@@ -618,10 +790,9 @@ The `proto/` folder contains the gRPC interface contracts shared between the API
 
 ---
 
-## 👥 Authors
+## Authors
 
-- **Amal Mselmi** — [github.com/AmalMselmi](https://github.com/AmalMselmi)
+- **Amal Mselmi**: [github.com/AmalMselmi](https://github.com/AmalMselmi)
 
 ---
 
-*Smart Hospital Management System — SoA et Microservices — 2025-26*
