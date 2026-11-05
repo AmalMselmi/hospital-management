@@ -3,8 +3,7 @@ const protoLoader = require('@grpc/proto-loader');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const db = require('./db');
-const { publishPatientCreated } = require('./kafkaProducer');
-
+const { publishPatientCreated } = require('./KafkaProducer');
 // Load the proto file from the shared proto directory
 const PROTO_PATH = path.join(__dirname, '../../proto/patient.proto');
 

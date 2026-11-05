@@ -2,8 +2,7 @@ const grpc = require('@grpc/grpc-js');
 const protoLoader = require('@grpc/proto-loader');
 const path = require('path');
 const { getDb } = require('./db');
-const { startConsumer } = require('./kafkaConsumer');
-
+const { startConsumer } = require('./KafkaConsumer');
 const PROTO_PATH = path.join(__dirname, '../../proto/notification.proto');
 
 const packageDef = protoLoader.loadSync(PROTO_PATH, {

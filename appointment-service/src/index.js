@@ -3,8 +3,7 @@ const protoLoader = require('@grpc/proto-loader');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const db = require('./db');
-const { publishAppointmentCreated, publishAppointmentCancelled } = require('./kafkaProducer');
-
+const { publishAppointmentCreated, publishAppointmentCancelled } = require('./KafkaProducer');
 const PROTO_PATH = path.join(__dirname, '../../proto/appointment.proto');
 
 const packageDef = protoLoader.loadSync(PROTO_PATH, {
